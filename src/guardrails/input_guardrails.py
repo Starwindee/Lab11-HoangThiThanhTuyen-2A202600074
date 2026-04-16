@@ -38,9 +38,14 @@ def detect_injection(user_input: str) -> bool:
         True if injection detected, False otherwise
     """
     INJECTION_PATTERNS = [
-        # TODO: Add at least 5 regex patterns
-        # Example:
-        # r"ignore (all )?(previous|above) instructions",
+        r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions",
+        r"\byou\s+are\s+now\b",
+        r"\bsystem\s+prompt\b",
+        r"reveal\s+your\s+(instructions|prompt)",
+        r"\bpretend\s+you\s+are\b",
+        r"\bact\s+as\s+(a\s+|an\s+)?unrestricted\b",
+        r"override\s+(safety|guardrails|policies)",
+        r"forget\s+(all\s+)?(instructions|rules)",
     ]
 
     for pattern in INJECTION_PATTERNS:
@@ -74,8 +79,13 @@ def topic_filter(user_input: str) -> bool:
     # 1. If input contains any blocked topic -> return True
     # 2. If input doesn't contain any allowed topic -> return True
     # 3. Otherwise -> return False (allow)
+    if any(topic in input_lower for topic in BLOCKED_TOPICS):
+        return True
 
-    pass  # Replace with your implementation
+    if not any(topic in input_lower for topic in ALLOWED_TOPICS):
+        return True
+
+    return False
 
 
 # ============================================================
@@ -134,8 +144,21 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         # 2. Call topic_filter(text)
         #    - If True: increment blocked_count, return self._block_response("...")
         # 3. If both are False: return None (let message through)
+        if detect_injection(text):
+            self.blocked_count += 1
+            return self._block_response(
+                "Your request appears to contain prompt-injection patterns, so I cannot process it. "
+                "Please ask a normal banking question."
+            )
 
-        pass  # Replace with your implementation
+        if topic_filter(text):
+            self.blocked_count += 1
+            return self._block_response(
+                "I can only assist with safe banking-related topics. "
+                "Please rephrase your request within that scope."
+            )
+
+        return None
 
 
 # ============================================================
@@ -191,7 +214,8 @@ async def test_input_plugin():
         status = "BLOCKED" if result else "PASSED"
         print(f"  [{status}] '{msg[:60]}'")
         if result and result.parts:
-            print(f"           -> {result.parts[0].text[:80]}")
+            block_text = result.parts[0].text or ""
+            print(f"           -> {block_text[:80]}")
     print(f"\nStats: {plugin.blocked_count} blocked / {plugin.total_count} total")
 
 

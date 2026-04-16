@@ -36,6 +36,7 @@ async def part1_attacks():
     # TODO 2: Generate AI attack test cases
     print("\n--- Generating AI attacks (TODO 2) ---")
     ai_attacks = await generate_ai_attacks()
+    print(f"Generated {len(ai_attacks)} AI attack prompts.")
 
     return results
 
