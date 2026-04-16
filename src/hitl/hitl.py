@@ -84,13 +84,42 @@ class ConfidenceRouter:
         #      action="escalate", priority="high",
         #      requires_human=True, reason="Low confidence — escalating"
 
+        normalized_confidence = max(0.0, min(1.0, confidence))
+
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=normalized_confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
+
+        if normalized_confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=normalized_confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+
+        if normalized_confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=normalized_confidence,
+                reason="Medium confidence - needs review",
+                priority="normal",
+                requires_human=True,
+            )
+
         return RoutingDecision(
-            action="auto_send",
-            confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+            action="escalate",
+            confidence=normalized_confidence,
+            reason="Low confidence - escalating",
+            priority="high",
+            requires_human=True,
+        )
 
 
 # ============================================================
@@ -109,27 +138,27 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Large transfer to new beneficiary",
+        "trigger": "Transfer amount >= 50,000,000 VND or first-time beneficiary",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "KYC status, recent transaction history, fraud score, device/IP metadata, available balance",
+        "example": "Customer requests urgent transfer of 120,000,000 VND to a newly added account.",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Sensitive profile recovery change",
+        "trigger": "Password reset plus phone/email update in same session",
+        "hitl_model": "human-as-tiebreaker",
+        "context_needed": "2FA logs, failed login attempts, identity verification artifacts, prior support tickets",
+        "example": "User asks to reset password and replace registered phone after multiple failed logins.",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Low-confidence policy answer",
+        "trigger": "Model confidence < 0.70 for fees, loan terms, or compliance-related questions",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "Draft answer, confidence score, retrieved policy documents, product/version timestamp",
+        "example": "Customer asks penalty terms for early mortgage payoff and model returns uncertain wording.",
     },
 ]
 
